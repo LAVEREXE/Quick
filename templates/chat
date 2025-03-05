@@ -1,0 +1,43 @@
+.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <!-- Sidebar content -->
+        </div>
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="user-info">
+                    <h2>{{ username }}</h2>
+                    <p class="last-seen">был(а) 1 час назад</p>
+                </div>
+                <div class="chat-actions">
+                    <i class="fas fa-search"></i>
+                    <i class="fas fa-phone"></i>
+                    <i class="fas fa-ellipsis-v"></i>
+                </div>
+            </div>
+            <div class="messages" id="messages">
+                <!-- Messages will be inserted here -->
+            </div>
+            <div class="input-area">
+                <input type="text" id="message-input" placeholder="Написать сообщение...">
+                <div class="message-actions">
+                    <i class="fas fa-paperclip" id="attach-file"></i>
+                    <i class="fas fa-image" id="attach-image"></i>
+                    <i class="fas fa-paper-plane" id="send-message"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Quick Chat - Login</title>
+    <style>
+        body {
+            background-color: #1e1e2e;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-form {
+            background-color: #2b2b3b;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s ease-out forwards;
+            width: 320px;
+        }
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #7aa2f7;
+            font-size: 1.8rem;
+        }
+        input {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            background: #363646;
+            border: 2px solid #4a4a5a;
+            border-radius: 25px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #7aa2f7;
+            box-shadow: 0 0 10px rgba(122, 162, 247, 0.2);
+        }
+        input::placeholder {
+            color: #8f8f9d;
+        }
+        .bubble-button {
+            width: 100%;
+            padding: 12px;
+            background: #7aa2f7;
+            border: none;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            margin-top: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .bubble-button:hover {
+            background: #89b1ff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122, 162, 247, 0.3);
+        }
+        .ip-input-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .ip-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: #363646;
+            border: 2px solid #4a4a5a;
+            border-radius: 15px;
+            margin-top: 5px;
+            display: none;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .ip-dropdown.show {
+            display: block;
+            animation: dropdownFadeIn 0.3s ease-out;
+        }
+
+        .ip-option {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .ip-option:hover {
+            background-color: #4a4a5a;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes dropdownFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .quick-login {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #2b2b3b;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out 0.3s forwards;
+        }
+
+        .quick-login-button {
+            background: #7aa2f7;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            text-align: center;
+            display: block;
+            width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .quick-login-button:hover {
+            background: #89b1ff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122, 162, 247, 0.3);
+        }
+
+        .quick-login-label {
+            color: #8f8f9d;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .quick-access {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 1.5rem;
+            background-color: #2b2b3b;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .quick-access-button {
+            background: #7aa2f7;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            text-align: center;
+            display: block;
+            width: 250px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .quick-access-button:hover {
+            background: #89b1ff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122, 162, 247, 0.3);
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .error-alert {
+            background-color: rgba(255, 107, 107, 0.2);
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-form">
+        <h2>Вход в Quick Chat</h2>
+        
+        {% if error %}
+        <div class="error-alert">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <!-- Метод GET, чтобы перенаправить на /chat с параметрами -->
+        <form id="loginForm" onsubmit="return validateForm()" action="/chat" method="get">
+            <div>
+                <input type="text" 
+                       name="username" 
+                       id="username"
+                       placeholder="Имя пользователя" 
+                       required 
+                       minlength="2"
+                       pattern="[A-Za-zА-Яа-я0-9\s]{2,}"
+                       title="Минимум 2 символа, только буквы и цифры"/>
+                <div class="error-message" id="usernameError">
+                    Введите корректное имя пользователя
+                </div>
+            </div>
+            
+            <div class="ip-input-container">
+                <input type="text" 
+                       name="server_ip" 
+                       id="server_ip" 
+                       placeholder="IP сервера" 
+                       required
+                       pattern="^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"
+                       title="Введите корректный IP адрес"/>
+                <div class="error-message" id="ipError">
+                    Введите корректный IP адрес
+                </div>
+                <div class="ip-dropdown" id="ipDropdown">
+                    {% for ip in ip_history %}
+                        <div class="ip-option" data-ip="{{ ip }}">{{ ip }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <button type="submit" class="bubble-button">Войти</button>
+        </form>
+    </div>
+    {% if last_login %}
+    <div class="quick-access">
+        <form action="/chat" method="get" id="quickLoginForm">
+            <input type="hidden" name="username" value="{{ last_login.username }}">
+            <input type="hidden" name="server_ip" value="{{ last_login.ip }}">
+            <button type="submit" class="quick-access-button">
+                Войти как {{ last_login.username }}
+            </button>
+        </form>
+    </div>
+    {% endif %}
+    <script>
+        const serverIpInput = document.getElementById('server_ip');
+        const ipDropdown = document.getElementById('ipDropdown');
+        const ipOptions = document.querySelectorAll('.ip-option');
+
+        serverIpInput.addEventListener('focus', () => {
+            ipDropdown.classList.add('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!serverIpInput.contains(e.target) && !ipDropdown.contains(e.target)) {
+                ipDropdown.classList.remove('show');
+            }
+        });
+
+        ipOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                serverIpInput.value = option.dataset.ip;
+                ipDropdown.classList.remove('show');
+            });
+        });
+
+        document.querySelector('.bubble-button').addEventListener('click', function(e) {
+            this.classList.add('clicked');
+            setTimeout(() => {
+                document.getElementById('loginForm').submit();
+            }, 500);
+            e.preventDefault();
+        });
+
+        document.querySelector('#loginForm').addEventListener('submit', function(e) {
+            const username = this.querySelector('[name="username"]').value;
+            const ip = this.querySelector('[name="server_ip"]').value;
+            
+            // Save last login
+            fetch('/save_last_login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    ip: ip
+                })
+            });
+        });
+
+        // Add animation for quick login button
+        document.querySelector('#quickLoginForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const button = this.querySelector('button');
+            button.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.submit();
+            }, 200);
+        });
+
+        function validateForm() {
+            const username = document.getElementById('username');
+            const serverIp = document.getElementById('server_ip');
+            const usernameError = document.getElementById('usernameError');
+            const ipError = document.getElementById('ipError');
+            let isValid = true;
+
+            // Validate username
+            if (!username.value.match(/^[A-Za-zА-Яа-я0-9\s]{2,}$/)) {
+                usernameError.style.display = 'block';
+                username.classList.add('error');
+                isValid = false;
+            } else {
+                usernameError.style.display = 'none';
+                username.classList.remove('error');
+            }
+
+            // Validate IP address
+            if (!serverIp.value.match(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/)) {
+                ipError.style.display = 'block';
+                serverIp.classList.add('error');
+                isValid = false;
+            } else {
+                ipError.style.display = 'none';
+                serverIp.classList.remove('error');
+            }
+
+            if (!isValid) {
+                // Animate error shake
+                const form = document.querySelector('.login-form');
+                form.classList.add('shake');
+                setTimeout(() => form.classList.remove('shake'), 500);
+            }
+
+            return isValid;
+        }
+
+        // Save last login info when form is submitted successfully
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                return;
+            }
+
+            const username = document.getElementById('username').value;
+            const serverIp = document.getElementById('server_ip').value;
+
+            localStorage.setItem('lastLogin', JSON.stringify({
+                username: username,
+                ip: serverIp
+            }));
+        });
+    </script>
+</body>
+</html>
