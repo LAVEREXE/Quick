@@ -16,6 +16,14 @@
   <h2>Структура репозитория</h2>
   <pre>
 ├── app.py                # Основное Flask-приложение
+├── ip_history.json
+├── last_login.json
+├── node_modules/
+├── package-lock.json
+├── postcss.config.js
+├── README.md
+├── requirements.txt
+├── self_chat_Laver.json
 ├── static/ 
 │   ├── css/ 
 │   │   ├── main.css      # Базовые стили Tailwind
