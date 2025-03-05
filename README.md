@@ -1,2 +1,118 @@
-# Quick
-Quick messenger
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Описание проекта</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1, h2, h3 {
+      color: #2c3e50;
+    }
+    pre {
+      background-color: #2d2d2d;
+      color: #f8f8f2;
+      padding: 10px;
+      overflow-x: auto;
+      border-radius: 5px;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+    }
+    .divider {
+      border-top: 1px solid #ccc;
+      margin: 20px 0;
+    }
+    ul {
+      list-style: disc;
+      margin-left: 20px;
+    }
+    a {
+      color: #2980b9;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Описание проекта</h1>
+  <p>
+    Данный проект представляет собой веб-приложение с интеграцией в настольное приложение. Приложение разработано с использованием Flask для бэкенда, Tailwind CSS и кастомных стилей для фронтенда, а также Node.js для управления зависимостями. Кроме того, реализована интеграция с Qt для создания нативного окна.
+  </p>
+
+  <div class="divider"></div>
+
+  <h2>Структура репозитория</h2>
+  <pre>
+├── app.py                # Основное Flask-приложение
+├── static/ 
+│   ├── css/ 
+│   │   ├── main.css      # Базовые стили Tailwind
+│   │   └── style.css     # Кастомные стили
+│   └── js/ 
+│       └── chat.js       # Функционал чата
+├── templates/ 
+│   ├── chat.html         # Интерфейс чата
+│   └── login.html        # Страница входа
+└── package.json          # Зависимости Node.js
+  </pre>
+
+  <div class="divider"></div>
+
+  <h2>Установка зависимостей</h2>
+  
+  <h3>Python</h3>
+  <p>Установите необходимые зависимости для Python:</p>
+  <pre><code>pip install -r requirements.txt</code></pre>
+
+  <h3>Node.js</h3>
+  <p>Установите зависимости для Node.js:</p>
+  <pre><code>npm install</code></pre>
+
+  <div class="divider"></div>
+
+  <h2>Запуск приложения</h2>
+  <p>Запустите приложение командой:</p>
+  <pre><code>python app.py</code></pre>
+  <p>После запуска:</p>
+  <ul>
+    <li><strong>Flask-сервер</strong> будет доступен по адресу: <a href="http://127.0.0.1:5000" target="_blank">http://127.0.0.1:5000</a></li>
+    <li><strong>WebSocket-сервер</strong> запустится на порту <strong>12345</strong></li>
+    <li>Автоматически откроется нативное окно с использованием <strong>Qt</strong></li>
+  </ul>
+
+  <div class="divider"></div>
+
+  <h2>Основные возможности</h2>
+
+  <h3>Система авторизации</h3>
+  <ul>
+    <li>Ввод имени пользователя и IP-адреса сервера</li>
+    <li>Отслеживание истории введённых IP</li>
+    <li>Быстрый вход для повторных пользователей</li>
+  </ul>
+
+  <h3>Чат</h3>
+  <ul>
+    <li>Обмен сообщениями в реальном времени</li>
+    <li>Возможность оставлять личные заметки</li>
+    <li>Сохранение истории сообщений</li>
+    <li>Индикаторы состояния подключения</li>
+    <li>Адаптивный дизайн для любых экранов</li>
+  </ul>
+
+  <h3>Интеграция с рабочим столом</h3>
+  <ul>
+    <li>Нативное настольное окно с использованием Qt</li>
+    <li>Интегрированный веб-просмотр</li>
+    <li>Интеграция с системным треем</li>
+  </ul>
+</body>
+</html>
