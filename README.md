@@ -3,43 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Описание проекта</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-      background-color: #f9f9f9;
-      color: #333;
-    }
-    h1, h2, h3 {
-      color: #2c3e50;
-    }
-    pre {
-      background-color: #2d2d2d;
-      color: #f8f8f2;
-      padding: 10px;
-      overflow-x: auto;
-      border-radius: 5px;
-    }
-    code {
-      font-family: Consolas, "Courier New", monospace;
-    }
-    .divider {
-      border-top: 1px solid #ccc;
-      margin: 20px 0;
-    }
-    ul {
-      list-style: disc;
-      margin-left: 20px;
-    }
-    a {
-      color: #2980b9;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
+  
 </head>
 <body>
   <h1>Описание проекта</h1>
