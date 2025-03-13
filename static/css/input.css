@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+.message-container { max-width: 65%; margin: 4px 0; word-wrap: break-word; }
+.message-bubble { padding: 8px 12px; border-radius: 16px; position: relative; display: inline-block; max-width: 100%; }
+.message-mine { margin-left: auto; background-color: #7aa2f7; border-bottom-right-radius: 4px; }
+.message-other { margin-right: auto; background-color: #363646; border-bottom-left-radius: 4px; }

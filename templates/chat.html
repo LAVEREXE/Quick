@@ -160,7 +160,6 @@
             background-color: #5a5a6a;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const socket = io({
@@ -242,16 +241,10 @@
 <body class="text-white">
     <div class="flex h-screen">
         <div class="w-1/4 bg-gray-900 p-4">
-            <!-- Username display first -->
             <div class="flex items-center mb-4">
-                <input class="w-full p-2 bg-gray-800 text-white rounded" 
-                       value="{{ username }}" 
-                       disabled 
-                       type="text"/>
+                <input class="w-full p-2 bg-gray-800 text-white rounded" value="{{ username }}" disabled type="text"/>
             </div>
-            
-            <!-- Notes option below username -->
-            <div class="mb-4 cursor-pointer" onclick="selectSelfChat()">
+            <div class="mb-4 cursor-pointer self-chat-button" onclick="chatApp.selectSelfChat()">
                 <div class="flex items-center p-3 rounded-lg hover:bg-gray-800">
                     <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
                     <div>
@@ -260,17 +253,16 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- Other users below -->
-            <div id="users-list">
-                <!-- Other users will be added here -->
-            </div>
+            <div id="users-list"></div>
         </div>
         
         <!-- Chat area -->
         <div class="w-3/4 flex flex-col bg-gray-800">
             <div id="chat-header" class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-semibold" id="recipientName">Выберите чат</h2>
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold" id="recipientName">Выберите чат</h2>
+                    <span id="connection-status" class="text-red-500">Disconnected</span>
+                </div>
                 <p class="text-sm text-gray-400" id="lastSeen"></p>
             </div>
             
@@ -293,7 +285,146 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const wsConnection = {
+            socket: null,
+            connected: false,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 5,
+            reconnectDelay: 2000
+        };
+
+        function connectWebSocket() {
+            if (wsConnection.socket && wsConnection.socket.readyState <= 1) return;
+            
+            try {
+                wsConnection.socket = new WebSocket(`ws://${window.location.host}/ws`);
+                
+                wsConnection.socket.onopen = () => {
+                    console.log('WebSocket connected');
+                    wsConnection.connected = true;
+                    wsConnection.reconnectAttempts = 0;
+                    updateConnectionStatus(true);
+                };
+                
+                wsConnection.socket.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    wsConnection.connected = false;
+                    updateConnectionStatus(false);
+                    
+                    if (wsConnection.reconnectAttempts < wsConnection.maxReconnectAttempts) {
+                        setTimeout(connectWebSocket, wsConnection.reconnectDelay);
+                        wsConnection.reconnectAttempts++;
+                    }
+                };
+                
+                wsConnection.socket.onmessage = handleWebSocketMessage;
+                
+                wsConnection.socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+            } catch (error) {
+                console.error('Connection error:', error);
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connection-status');
+            if (statusElement) {
+                statusElement.textContent = connected ? 'Connected' : 'Disconnected';
+                statusElement.className = connected ? 'text-green-500' : 'text-red-500';
+            }
+        }
+
+        function handleWebSocketMessage(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Received message:', data);
+                
+                if (!data) return;
+
+                if (data.type === 'self_message' && isSelfChat) {
+                    addMessage({
+                        text: data.text,
+                        timestamp: data.timestamp || new Date().toLocaleTimeString(),
+                        isSelfChat: true
+                    });
+                } else if (data.sender && data.message) {
+                    addMessage({
+                        sender: data.sender,
+                        text: data.message,
+                        timestamp: data.timestamp || new Date().toLocaleTimeString()
+                    });
+                } else if (data.error) {
+                    console.error('Server error:', data.error);
+                }
+            } catch (error) {
+                console.error('Error handling message:', error);
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            if (!messageInput) return;
+
+            const text = messageInput.value.trim();
+            if (!text || !wsConnection.socket || wsConnection.socket.readyState !== WebSocket.OPEN) {
+                console.log('Cannot send message:', {
+                    hasText: !!text,
+                    hasSocket: !!wsConnection.socket,
+                    readyState: wsConnection.socket?.readyState
+                });
+                return;
+            }
+
+            try {
+                const messageData = {
+                    type: isSelfChat ? 'self_message' : 'message',
+                    text: text,
+                    sender: username,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+
+                wsConnection.socket.send(JSON.stringify(messageData));
+                messageInput.value = '';
+                
+                // Add message to chat immediately
+                addMessage({
+                    sender: username,
+                    text: text,
+                    timestamp: messageData.timestamp,
+                    isSelfChat: isSelfChat
+                });
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
+        }
+
+        function addMessage(message) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            if (!messagesContainer) return;
+
+            const messageDiv = document.createElement('div');
+            const isMine = message.sender === username || message.isSelfChat;
+            
+            messageDiv.className = `message-container ${
+                message.isSelfChat ? 'self-chat' : (isMine ? 'message-mine' : 'message-other')
+            }`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-bubble">
+                    ${message.sender && !message.isSelfChat ? 
+                        `<p class="message-text font-bold">${message.sender}</p>` : 
+                        ''}
+                    <p class="message-text">${message.text}</p>
+                    <div class="message-time">${message.timestamp}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    </script>
     <script>
         const socket = io({
             transports: ['websocket', 'polling'],
@@ -511,100 +642,127 @@
         document.head.appendChild(style);
     </script>
     <script>
+        // Use window object to avoid redeclaration conflicts
+        window.ws = window.ws || null;
+        window.username = "{{ username }}";
+        window.currentRecipient = window.currentRecipient || null;
+        window.isSelfChat = window.isSelfChat || false;
+        window.selfChatMessages = JSON.parse('{{ self_chat_messages|tojson|safe }}');
+
         function connectWebSocket() {
             ws = new WebSocket(`ws://${window.location.host}/ws`);
             
-            ws.onopen = () => {
+            ws.onopen = function() {
                 console.log('WebSocket connected');
-                document.getElementById('connection-status')?.remove();
+                // Отправляем имя пользователя при подключении
+                ws.send(JSON.stringify({username: username}));
             };
-            
-            ws.onclose = () => {
+
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('Received message:', data); // Debug log
+                    
+                    if (data.type === 'self_message' && isSelfChat) {
+                        addMessage({
+                            text: data.text,
+                            timestamp: data.timestamp || new Date().toLocaleTimeString(),
+                            isSelfChat: true
+                        });
+                    } else if (data.sender && data.message) {
+                        addMessage({
+                            sender: data.sender,
+                            text: data.message,
+                            timestamp: data.timestamp || new Date().toLocaleTimeString()
+                        });
+                    } else if (data.error) {
+                        console.error('Server error:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            };
+
+            ws.onclose = function() {
                 console.log('WebSocket disconnected');
-                setTimeout(connectWebSocket, 2000);
+                setTimeout(connectWebSocket, 2000); // Переподключение
             };
-            
-            ws.onerror = (error) => {
+
+            ws.onerror = function(error) {
                 console.error('WebSocket error:', error);
             };
+        }
+
+        function addMessage(message) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            const isMine = message.sender === username || message.isSelfChat;
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-container ${message.isSelfChat ? 'self-chat' : (isMine ? 'message-mine' : 'message-other')}`;
+            messageDiv.innerHTML = `
+                <div class="message-bubble">
+                    ${message.sender && !message.isSelfChat ? `<p class="message-text font-bold">${message.sender}</p>` : ''}
+                    <p class="message-text">${message.text}</p>
+                    <div class="message-time">${message.timestamp}</div>
+                </div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const text = messageInput.value.trim();
             
-            ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                handleMessage(message);
-            };
+            if (!text || !currentRecipient || !ws || ws.readyState !== WebSocket.OPEN) return;
+            
+            if (isSelfChat) {
+                ws.send(JSON.stringify({
+                    type: 'self_message',
+                    text: text
+                }));
+            } else {
+                ws.send(JSON.stringify({
+                    type: 'message',
+                    recipient: currentRecipient,
+                    text: text
+                }));
+            }
+            messageInput.value = '';
         }
 
         function selectSelfChat() {
             isSelfChat = true;
             currentRecipient = username;
+            document.getElementById('recipientName').textContent = 'Заметки';
+            document.getElementById('lastSeen').textContent = 'Личные сообщения';
             
-            const recipientName = document.getElementById('recipientName');
-            const lastSeen = document.getElementById('lastSeen');
-            
-            if (recipientName && lastSeen) {
-                recipientName.textContent = 'Заметки';
-                lastSeen.textContent = 'Личные сообщения';
-                
-                // Clear and load self-chat messages
-                const messagesContainer = document.getElementById('messagesContainer');
-                if (messagesContainer) {
-                    messagesContainer.innerHTML = '';
-                    
-                    if (Array.isArray(selfChatMessages)) {
-                        selfChatMessages.forEach(msg => {
-                            addMessage({
-                                text: msg.text,
-                                timestamp: msg.timestamp,
-                                isSelfChat: true
-                            });
-                        });
-                    }
-                }
-            }
-        }
-
-        function sendMessage() {
-            const messageInput = document.getElementById('messageInput');
-            const text = messageInput?.value.trim();
-            
-            if (!ws || ws.readyState !== WebSocket.OPEN || !text) {
-                console.error('Cannot send message: WebSocket not connected or empty message');
-                return;
-            }
-            
-            const message = {
-                type: isSelfChat ? 'self_message' : 'message',
-                username: username,
-                text: text
-            };
-            
-            ws.send(JSON.stringify(message));
-            messageInput.value = '';
-        }
-
-        function handleMessage(message) {
-            if (!message) return;
-            
-            if (message.type === 'self_message' && isSelfChat) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.innerHTML = '';
+            selfChatMessages.forEach(msg => {
                 addMessage({
-                    text: message.text,
-                    timestamp: message.timestamp,
+                    text: msg.text,
+                    timestamp: msg.timestamp,
                     isSelfChat: true
                 });
-            }
+            });
         }
 
-        // Initialize WebSocket connection
-        connectWebSocket();
+        function selectUser(recipient) {
+            isSelfChat = false;
+            currentRecipient = recipient;
+            document.getElementById('recipientName').textContent = recipient;
+            document.getElementById('lastSeen').textContent = '';
+            document.getElementById('messagesContainer').innerHTML = '';
+            // Здесь можно добавить загрузку истории чата с пользователем, если она реализована
+        }
 
-        // Event listeners
-        document.getElementById('messageInput')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
         });
-
-        document.getElementById('sendButton')?.addEventListener('click', sendMessage);
     </script>
     <script>
         let ws = null;
@@ -1030,26 +1188,39 @@
     }
 
     function sendMessage() {
-        if (!wsConnected) return;
-        
         const messageInput = document.getElementById('messageInput');
-        const text = messageInput?.value.trim();
+        const text = messageInput.value.trim();
         
-        if (!text) return;
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) {
+            console.log('Cannot send message: ', {
+                text: !!text,
+                ws: !!ws,
+                readyState: ws?.readyState
+            });
+            return;
+        }
+        
+        const messageData = {
+            type: isSelfChat ? 'self_message' : 'message',
+            text: text,
+            sender: username,
+            timestamp: new Date().toLocaleTimeString()
+        };
         
         try {
-            ws.send(JSON.stringify({
-                type: 'self_message',
-                username: username,
-                text: text
-            }));
+            ws.send(JSON.stringify(messageData));
+            
+            // Immediately display the message locally
+            addMessage({
+                sender: username,
+                text: text,
+                timestamp: messageData.timestamp,
+                isSelfChat: isSelfChat
+            });
             
             messageInput.value = '';
         } catch (error) {
-            console.error('Send message error:', error);
-            wsConnected = false;
-            updateUI(false);
-            connectWebSocket();
+            console.error('Error sending message:', error);
         }
     }
 
@@ -1149,26 +1320,39 @@
     }
 
     function sendMessage() {
-        if (!wsConnected) return;
-        
         const messageInput = document.getElementById('messageInput');
-        const text = messageInput?.value.trim();
+        const text = messageInput.value.trim();
         
-        if (!text) return;
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) {
+            console.log('Cannot send message: ', {
+                text: !!text,
+                ws: !!ws,
+                readyState: ws?.readyState
+            });
+            return;
+        }
+        
+        const messageData = {
+            type: isSelfChat ? 'self_message' : 'message',
+            text: text,
+            sender: username,
+            timestamp: new Date().toLocaleTimeString()
+        };
         
         try {
-            ws.send(JSON.stringify({
-                type: 'self_message',
-                username: username,
-                text: text
-            }));
+            ws.send(JSON.stringify(messageData));
+            
+            // Immediately display the message locally
+            addMessage({
+                sender: username,
+                text: text,
+                timestamp: messageData.timestamp,
+                isSelfChat: isSelfChat
+            });
             
             messageInput.value = '';
         } catch (error) {
-            console.error('Send message error:', error);
-            wsConnected = false;
-            updateUI(false);
-            connectWebSocket();
+            console.error('Error sending message:', error);
         }
     }
 
@@ -1270,25 +1454,38 @@
 
     function sendMessage() {
         const messageInput = document.getElementById('messageInput');
-        const text = messageInput?.value.trim();
+        const text = messageInput.value.trim();
         
-        if (!wsConnected || !text) {
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) {
+            console.log('Cannot send message: ', {
+                text: !!text,
+                ws: !!ws,
+                readyState: ws?.readyState
+            });
             return;
         }
         
+        const messageData = {
+            type: isSelfChat ? 'self_message' : 'message',
+            text: text,
+            sender: username,
+            timestamp: new Date().toLocaleTimeString()
+        };
+        
         try {
-            ws.send(JSON.stringify({
-                type: 'self_message',
-                username: username,
-                text: text
-            }));
+            ws.send(JSON.stringify(messageData));
+            
+            // Immediately display the message locally
+            addMessage({
+                sender: username,
+                text: text,
+                timestamp: messageData.timestamp,
+                isSelfChat: isSelfChat
+            });
             
             messageInput.value = '';
         } catch (error) {
-            console.error('Send message error:', error);
-            wsConnected = false;
-            updateUIState(false);
-            connectWebSocket();
+            console.error('Error sending message:', error);
         }
     }
 
@@ -1305,6 +1502,425 @@
         });
         
         document.getElementById('sendButton')?.addEventListener('click', sendMessage);
+    });
+</script>
+<script>
+    // Global variables
+    window.username = window.username || "{{ username }}"; // Get from Flask template
+    window.isSelfChat = window.isSelfChat || false;
+    window.currentRecipient = window.currentRecipient || null;
+    window.selfChatMessages = window.selfChatMessages || []; // Initialize empty if not provided by server
+
+    // WebSocket connection management
+    window.wsConnection = window.wsConnection || {
+        socket: null,
+        connected: false,
+        reconnectAttempts: 0,
+        maxReconnectAttempts: 5,
+        reconnectDelay: 2000
+    };
+
+    function initializeChat() {
+        connectWebSocket();
+        setupEventListeners();
+    }
+
+    function connectWebSocket() {
+        if (wsConnection.socket && wsConnection.socket.readyState <= 1) return;
+        
+        try {
+            wsConnection.socket = new WebSocket(`ws://${window.location.host}/ws`);
+            
+            wsConnection.socket.onopen = () => {
+                console.log('WebSocket connected');
+                wsConnection.connected = true;
+                wsConnection.reconnectAttempts = 0;
+                updateConnectionStatus(true);
+                
+                // Send initial connection message
+                sendSystemMessage({
+                    type: 'connect',
+                    username: username
+                });
+            };
+            
+            wsConnection.socket.onclose = () => {
+                console.log('WebSocket disconnected');
+                wsConnection.connected = false;
+                updateConnectionStatus(false);
+                
+                if (wsConnection.reconnectAttempts < wsConnection.maxReconnectAttempts) {
+                    setTimeout(connectWebSocket, wsConnection.reconnectDelay);
+                    wsConnection.reconnectAttempts++;
+                }
+            };
+            
+            wsConnection.socket.onmessage = handleWebSocketMessage;
+            
+            wsConnection.socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus(false);
+            };
+        } catch (error) {
+            console.error('Connection error:', error);
+            updateConnectionStatus(false);
+        }
+    }
+
+    function sendSystemMessage(message) {
+        if (wsConnection.socket && wsConnection.socket.readyState === WebSocket.OPEN) {
+            wsConnection.socket.send(JSON.stringify(message));
+        }
+    }
+
+    function updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connection-status');
+        if (statusElement) {
+            statusElement.textContent = connected ? 'Connected' : 'Disconnected';
+            statusElement.className = `text-${connected ? 'green' : 'red'}-500`;
+        }
+    }
+
+    function setupEventListeners() {
+        document.getElementById('sendButton')?.addEventListener('click', sendMessage);
+        document.getElementById('messageInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', initializeChat);
+</script>
+<script>
+    // Single source of truth for chat state
+    const chatApp = {
+        state: {
+            username: "{{ username }}",
+            wsConnection: null,
+            connected: false,
+            isSelfChat: false,
+            currentRecipient: null,
+            messageCache: new Set() // Add cache for duplicate prevention
+        },
+
+        init() {
+            this.connectWebSocket();
+            this.setupEventListeners();
+        },
+
+        connectWebSocket() {
+            if (this.state.wsConnection?.readyState <= 1) return;
+
+            try {
+                this.state.wsConnection = new WebSocket(`ws://${window.location.host}/ws`);
+                
+                this.state.wsConnection.onopen = () => {
+                    console.log('WebSocket connected');
+                    this.state.connected = true;
+                    this.updateStatus('Connected', 'green');
+                    this.sendSystemMessage({
+                        type: 'connect',
+                        username: this.state.username
+                    });
+                };
+
+                this.state.wsConnection.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        // Check for duplicate messages
+                        const messageId = `${data.sender}-${data.timestamp}-${data.message}`;
+                        if (this.state.messageCache.has(messageId)) return;
+                        this.state.messageCache.add(messageId);
+                        
+                        console.log('Received:', data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        console.error('Message parsing error:', error);
+                    }
+                };
+
+                this.state.wsConnection.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    this.state.connected = false;
+                    this.updateStatus('Disconnected', 'red');
+                    setTimeout(() => this.connectWebSocket(), 2000);
+                };
+
+                this.state.wsConnection.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.updateStatus('Error', 'red');
+                };
+            } catch (error) {
+                console.error('Connection error:', error);
+                this.updateStatus('Connection Failed', 'red');
+            }
+        },
+
+        setupEventListeners() {
+            // Add event listeners for messages
+            document.getElementById('sendButton')?.addEventListener('click', 
+                () => this.sendMessage());
+            document.getElementById('messageInput')?.addEventListener('keypress', 
+                (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+            // Add self-chat button listener
+            document.querySelector('.self-chat-button')?.addEventListener('click',
+                () => this.selectSelfChat());
+        },
+
+        selectSelfChat() {
+            this.state.isSelfChat = true;
+            this.state.currentRecipient = this.state.username;
+            
+            const recipientName = document.getElementById('recipientName');
+            const lastSeen = document.getElementById('lastSeen');
+            
+            if (recipientName) recipientName.textContent = 'Заметки';
+            if (lastSeen) lastSeen.textContent = 'Личные сообщения';
+            
+            // Clear message container
+            const container = document.getElementById('messagesContainer');
+            if (container) container.innerHTML = '';
+        },
+
+        sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input?.value.trim();
+
+            if (!text || !this.state.wsConnection || 
+                this.state.wsConnection.readyState !== WebSocket.OPEN) return;
+
+            const message = {
+                type: this.state.isSelfChat ? 'self_message' : 'message',
+                sender: this.state.username,
+                message: text,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            this.sendSystemMessage(message);
+            input.value = '';
+            
+            // Don't immediately display self-chat messages - wait for server echo
+            if (!this.state.isSelfChat) {
+                this.displayMessage(message);
+            }
+        },
+
+        handleMessage(data) {
+            if (!data) return;
+            
+            // Create unique message identifier
+            const messageId = `${data.sender}-${data.timestamp}-${data.message}`;
+            
+            // Skip if message already processed
+            if (this.state.processedMessages.has(messageId)) {
+                return;
+            }
+            
+            // Add to processed messages
+            this.state.processedMessages.add(messageId);
+            
+            if (data.type === 'self_message' && this.state.isSelfChat) {
+                this.displayMessage(data);
+            } else if (data.type === 'message') {
+                if (!this.state.isSelfChat || data.sender !== this.state.username) {
+                    this.displayMessage(data);
+                }
+            }
+        },
+
+        selectSelfChat() {
+            if (this.state.isSelfChat) return; // Prevent duplicate activation
+            
+            this.state.isSelfChat = true;
+            this.state.currentRecipient = this.state.username;
+            
+            const recipientName = document.getElementById('recipientName');
+            const lastSeen = document.getElementById('lastSeen');
+            const container = document.getElementById('messagesContainer');
+            
+            if (recipientName) recipientName.textContent = 'Заметки';
+            if (lastSeen) lastSeen.textContent = 'Личные сообщения';
+            if (container) container.innerHTML = '';
+            
+            // Clear processed messages when switching chats
+            this.state.processedMessages.clear();
+        },
+
+        sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input?.value.trim();
+
+            if (!text || !this.state.wsConnection || 
+                this.state.wsConnection.readyState !== WebSocket.OPEN) return;
+
+            const message = {
+                type: this.state.isSelfChat ? 'self_message' : 'message',
+                sender: this.state.username,
+                message: text,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            this.sendSystemMessage(message);
+            input.value = '';
+            
+            // For self-chat messages, wait for server echo
+            // For regular messages, show immediately
+            if (!this.state.isSelfChat) {
+                this.displayMessage(message);
+            }
+        }
+    };
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => chatApp.init());
+</script>
+<script>
+    // Remove any existing Socket.io references
+    document.addEventListener('DOMContentLoaded', function() {
+        // Global state object
+        const chatState = {
+            username: "{{ username }}",
+            serverIp: "{{ server_ip }}",
+            wsConnection: null,
+            isSelfChat: false,
+            currentRecipient: null,
+            connected: false
+        };
+
+        function initializeWebSocket() {
+            // Close existing connection if any
+            if (chatState.wsConnection) {
+                chatState.wsConnection.close();
+            }
+
+            try {
+                chatState.wsConnection = new WebSocket(`ws://${window.location.host}/ws`);
+                
+                chatState.wsConnection.onopen = function() {
+                    console.log('WebSocket connected');
+                    chatState.connected = true;
+                    updateStatus('Connected', 'green');
+                    // Send initial connection message
+                    sendSystemMessage({
+                        type: 'connect',
+                        username: chatState.username
+                    });
+                };
+
+                chatState.wsConnection.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('Received:', data);
+                        handleMessage(data);
+                    } catch (error) {
+                        console.error('Message parsing error:', error);
+                    }
+                };
+
+                chatState.wsConnection.onclose = function() {
+                    console.log('WebSocket disconnected');
+                    chatState.connected = false;
+                    updateStatus('Disconnected', 'red');
+                    // Attempt to reconnect after 2 seconds
+                    setTimeout(initializeWebSocket, 2000);
+                };
+
+                chatState.wsConnection.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Error', 'red');
+                };
+            } catch (error) {
+                console.error('Connection error:', error);
+                updateStatus('Connection Failed', 'red');
+            }
+        }
+
+        function updateStatus(text, color) {
+            const status = document.getElementById('connection-status');
+            if (status) {
+                status.textContent = text;
+                status.className = `text-${color}-500`;
+            }
+        }
+
+        function handleMessage(data) {
+            if (!data) return;
+
+            if (data.type === 'self_message' && chatState.isSelfChat) {
+                displayMessage(data);
+            } else if (data.sender && data.message) {
+                displayMessage(data);
+            }
+        }
+
+        function sendSystemMessage(message) {
+            if (chatState.wsConnection?.readyState === WebSocket.OPEN) {
+                chatState.wsConnection.send(JSON.stringify(message));
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input?.value.trim();
+
+            if (!text || !chatState.wsConnection || 
+                chatState.wsConnection.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            const message = {
+                type: chatState.isSelfChat ? 'self_message' : 'message',
+                sender: chatState.username,
+                message: text,
+                timestamp: new Date().toLocaleTimeString()
+            };
+
+            sendSystemMessage(message);
+            input.value = '';
+            
+            // Display sent message immediately
+            displayMessage(message);
+        }
+
+        function displayMessage(message) {
+            const container = document.getElementById('messagesContainer');
+            if (!container) return;
+
+            const div = document.createElement('div');
+            const isSelf = message.sender === chatState.username;
+            
+            div.className = `message-container ${isSelf ? 'message-mine' : 'message-other'}`;
+            div.innerHTML = `
+                <div class="message-bubble">
+                    <p class="message-text">${message.message || message.text}</p>
+                    <div class="message-time">${message.timestamp}</div>
+                </div>
+            `;
+            
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Initialize chat
+        initializeWebSocket();
+
+        // Add event listeners
+        document.getElementById('sendButton')?.addEventListener('click', sendMessage);
+        document.getElementById('messageInput')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
     });
 </script>
 </body>

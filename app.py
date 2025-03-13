@@ -1,7 +1,7 @@
 import os
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox"
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 from flask_sock import Sock
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QUrl
@@ -98,6 +98,8 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 sock = Sock(app)
 
 connected_users = {}
+message_history = []
+connected_clients = {}
 
 @sock.route('/ws/chat')  # Changed route to avoid conflict
 def ws_chat(ws):
@@ -199,6 +201,52 @@ def handle_message(data):
             'message': str(e)
         }
 
+@sock.route('/ws')
+def handle_websocket(ws):
+    try:
+        while True:
+            data = ws.receive()
+            if not data:
+                continue
+                
+            message_data = json.loads(data)
+            print(f"Received message: {message_data}")  # Debug log
+            
+            # Add timestamp if not present
+            if 'timestamp' not in message_data:
+                message_data['timestamp'] = datetime.now().strftime("%H:%M:%S")
+            
+            try:
+                # Handle the message based on its type
+                if message_data.get('type') == 'connect':
+                    username = message_data.get('username')
+                    if username:
+                        connected_clients[username] = ws
+                        print(f"User connected: {username}")
+                elif message_data.get('type') in ['message', 'self_message']:
+                    # Broadcast message to all clients
+                    for client in connected_clients.values():
+                        try:
+                            client.send(json.dumps(message_data))
+                        except Exception as e:
+                            print(f"Error sending to client: {e}")
+                            
+            except Exception as e:
+                print(f"Error processing message: {e}")
+                ws.send(json.dumps({
+                    'type': 'error',
+                    'message': str(e)
+                }))
+                    
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    finally:
+        if ws in connected_clients.values():
+            # Remove disconnected client
+            to_remove = [k for k, v in connected_clients.items() if v == ws]
+            for k in to_remove:
+                del connected_clients[k]
+
 # Добавим обработчик ошибок
 @app.errorhandler(404)
 def not_found_error(error):
@@ -228,29 +276,12 @@ def login():
 # Страница чата
 @app.route('/chat')
 def chat():
-    username = request.args.get('username')
-    server_ip = request.args.get('server_ip')
-    
-    if not username or not server_ip:
-        return redirect(url_for('login'))
-    
-    chat_file = f'self_chat_{username}.json'
-    
-    # Initialize self-chat file if it doesn't exist
-    if not os.path.exists(chat_file):
-        with open(chat_file, 'w', encoding='utf-8') as f:
-            json.dump([], f)
-    
-    try:
-        with open(chat_file, 'r', encoding='utf-8') as f:
-            self_chat_messages = json.load(f)
-    except:
-        self_chat_messages = []
-    
+    username = request.args.get('username', 'Anonymous')
+    server_ip = request.args.get('server_ip', '127.0.0.1')
     return render_template('chat.html', 
-                         username=username, 
+                         username=username,
                          server_ip=server_ip,
-                         self_chat_messages=self_chat_messages)
+                         self_chat_messages=[])
 
 @app.route('/hello/<name>')
 def hello(name):
