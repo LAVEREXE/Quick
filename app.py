@@ -21,36 +21,43 @@ class ValidationError(Exception):
 
 # Constants
 PORT = 12345
+# Папка для хранения файлов истории чатов
+HISTORY_DIR = os.path.join(os.getcwd(), 'chat_history')
+if not os.path.exists(HISTORY_DIR):
+    os.makedirs(HISTORY_DIR)
 
 def save_ip_to_history(ip):
     try:
         history = []
-        if os.path.exists('ip_history.json'):
-            with open('ip_history.json', 'r') as f:
+        ip_file = os.path.join(os.getcwd(), 'ip_history.json')
+        if os.path.exists(ip_file):
+            with open(ip_file, 'r') as f:
                 history = json.load(f)
         
         if ip not in history:
             history.insert(0, ip)
-            history = history[:5]  # Keep only last 5 IPs
+            history = history[:5]  # Храним последние 5 IP
             
-        with open('ip_history.json', 'w') as f:
+        with open(ip_file, 'w') as f:
             json.dump(history, f)
     except Exception as e:
         print(f"Error saving IP history: {e}")
 
 def get_ip_history():
     try:
-        if os.path.exists('ip_history.json'):
-            with open('ip_history.json', 'r') as f:
+        ip_file = os.path.join(os.getcwd(), 'ip_history.json')
+        if os.path.exists(ip_file):
+            with open(ip_file, 'r') as f:
                 return json.load(f)
     except Exception as e:
         print(f"Error loading IP history: {e}")
     return []
 
+# Функция для сохранения самопереписки (сообщения себе)
 def save_self_message(username, text):
-    filename = f'self_chat_{username}.json'
-    messages = []
     try:
+        filename = os.path.join(HISTORY_DIR, f'{username}SelfMG.json')
+        messages = []
         if os.path.exists(filename):
             with open(filename, 'r', encoding='utf-8') as f:
                 messages = json.load(f)
@@ -60,8 +67,35 @@ def save_self_message(username, text):
         })
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(messages, f, ensure_ascii=False, indent=2)
+        print(f"Самопереписка сохранена в {filename}")
     except Exception as e:
         print(f"Error saving self message: {e}")
+
+# Функция для сохранения переписки между двумя пользователями
+def save_chat_message(sender, recipient, text):
+    try:
+        # Если отправитель и получатель совпадают, вызываем функцию для самопереписки
+        if sender == recipient:
+            save_self_message(sender, text)
+            return
+        # Формирование имени файла, например: LaverChatDrakula.json
+        filename = os.path.join(HISTORY_DIR, f"{sender}Chat{recipient}.json")
+        messages = []
+        if os.path.exists(filename):
+            with open(filename, 'r', encoding='utf-8') as f:
+                messages = json.load(f)
+        new_message = {
+            'sender': sender,
+            'recipient': recipient,
+            'text': text,
+            'timestamp': datetime.now().strftime('%H:%M')
+        }
+        messages.append(new_message)
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(messages, f, ensure_ascii=False, indent=2)
+        print(f"История чата {sender} -> {recipient} сохранена в {filename}")
+    except Exception as e:
+        print(f"Error saving chat message: {e}")
 
 class ServerThread(threading.Thread):
     def __init__(self):
@@ -97,11 +131,9 @@ app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = 'your_secret_key'
 sock = Sock(app)
 
-connected_users = {}
-message_history = []
 connected_clients = {}
-
-@sock.route('/ws/chat')  # Changed route to avoid conflict
+# Обработка self_message через отдельный endpoint
+@sock.route('/ws/chat')
 def ws_chat(ws):
     while True:
         try:
@@ -115,46 +147,31 @@ def ws_chat(ws):
                 if response:
                     ws.send(json.dumps(response))
         except ConnectionClosed:
-            print("Client disconnected")
+            print("Client disconnected from /ws/chat")
             break
         except Exception as e:
-            print(f"WebSocket error: {e}")
+            print(f"WebSocket error (/ws/chat): {e}")
             break
 
 def handle_self_message(message):
     try:
         username = message.get('username')
         text = message.get('text')
-        timestamp = datetime.now().strftime('%H:%M')
-        
         if not username or not text:
             return None
-            
-        chat_file = f'self_chat_{username}.json'
-        messages = []
-        
-        if os.path.exists(chat_file):
-            with open(chat_file, 'r', encoding='utf-8') as f:
-                messages = json.load(f)
-        
-        new_message = {
-            'text': text,
-            'timestamp': timestamp
-        }
-        messages.append(new_message)
-        
-        with open(chat_file, 'w', encoding='utf-8') as f:
-            json.dump(messages, f, ensure_ascii=False, indent=2)
-        
+        # Сохраняем сообщение себе
+        save_self_message(username, text)
+        # Возвращаем ответ для отображения
         return {
             'type': 'self_message',
             'text': text,
-            'timestamp': timestamp
+            'timestamp': datetime.now().strftime('%H:%M')
         }
     except Exception as e:
-        print(f"Error handling message: {e}")
+        print(f"Error handling self_message: {e}")
         return None
 
+# Обработка обычных сообщений (между пользователями)
 @sock.route('/chat')
 def chat_socket(ws):
     try:
@@ -182,12 +199,15 @@ def chat_socket(ws):
 def handle_message(data):
     try:
         if data['type'] == 'message':
+            # Сохраняем историю переписки между пользователями
+            save_chat_message(data['sender'], data['recipient'], data['text'])
             return {
                 'type': 'message',
                 'sender': data['sender'],
                 'text': data['text'],
                 'timestamp': datetime.now().strftime('%H:%M')
             }
+        # Если вдруг self_message попадает сюда, обрабатываем отдельно
         elif data['type'] == 'self_message':
             save_self_message(data['username'], data['text'])
             return {
@@ -210,44 +230,40 @@ def handle_websocket(ws):
                 continue
                 
             message_data = json.loads(data)
-            print(f"Received message: {message_data}")  # Debug log
+            print(f"Received message on /ws: {message_data}")
             
-            # Add timestamp if not present
             if 'timestamp' not in message_data:
                 message_data['timestamp'] = datetime.now().strftime("%H:%M:%S")
             
             try:
-                # Handle the message based on its type
                 if message_data.get('type') == 'connect':
                     username = message_data.get('username')
                     if username:
                         connected_clients[username] = ws
                         print(f"User connected: {username}")
                 elif message_data.get('type') in ['message', 'self_message']:
-                    # Broadcast message to all clients
+                    # Рассылка сообщения всем клиентам
                     for client in connected_clients.values():
                         try:
                             client.send(json.dumps(message_data))
                         except Exception as e:
                             print(f"Error sending to client: {e}")
-                            
             except Exception as e:
-                print(f"Error processing message: {e}")
+                print(f"Error processing message on /ws: {e}")
                 ws.send(json.dumps({
                     'type': 'error',
                     'message': str(e)
                 }))
                     
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"WebSocket error (/ws): {e}")
     finally:
         if ws in connected_clients.values():
-            # Remove disconnected client
             to_remove = [k for k, v in connected_clients.items() if v == ws]
             for k in to_remove:
                 del connected_clients[k]
 
-# Добавим обработчик ошибок
+# Обработчики ошибок
 @app.errorhandler(404)
 def not_found_error(error):
     return jsonify({'error': 'Not found'}), 404
@@ -261,7 +277,6 @@ def internal_error(error):
 def login():
     ip_history = get_ip_history()
     last_login = None
-    
     try:
         if os.path.exists('last_login.json'):
             with open('last_login.json', 'r', encoding='utf-8') as f:
@@ -270,18 +285,27 @@ def login():
         print(f"Error loading last login: {e}")
     
     return render_template('login.html', 
-                         ip_history=ip_history, 
-                         last_login=last_login)
+                           ip_history=ip_history, 
+                           last_login=last_login)
 
-# Страница чата
+# Обновлённый маршрут страницы чата, который загружает историю самопереписки
 @app.route('/chat')
 def chat():
     username = request.args.get('username', 'Anonymous')
     server_ip = request.args.get('server_ip', '127.0.0.1')
+    # Попытка загрузить сохранённые сообщения для self-chat
+    self_chat_file = os.path.join(HISTORY_DIR, f'{username}SelfMG.json')
+    self_chat_messages = []
+    if os.path.exists(self_chat_file):
+        try:
+            with open(self_chat_file, 'r', encoding='utf-8') as f:
+                self_chat_messages = json.load(f)
+        except Exception as e:
+            print(f"Error loading self chat messages: {e}")
     return render_template('chat.html', 
-                         username=username,
-                         server_ip=server_ip,
-                         self_chat_messages=[])
+                           username=username,
+                           server_ip=server_ip,
+                           self_chat_messages=self_chat_messages)
 
 @app.route('/hello/<name>')
 def hello(name):
@@ -297,23 +321,17 @@ def run_flask():
 def run_qt():
     print("Starting Qt application...")
     qt_app = QApplication(sys.argv)
-    
-    # Create profile and page
     profile = QWebEngineProfile()
     profile.setHttpCacheType(QWebEngineProfile.MemoryHttpCache)
-    
     web = QWebEngineView()
     page = QWebEnginePage(profile)
     web.setPage(page)
-    
     web.setWindowTitle('Quick Chat')
     web.resize(1200, 800)
-    
     time.sleep(2)
     url = QUrl('http://127.0.0.1:5000')
     web.load(url)
     web.show()
-    
     return qt_app.exec()
 
 if __name__ == '__main__':
@@ -327,7 +345,6 @@ if __name__ == '__main__':
         
         print("Waiting for servers to start...")
         time.sleep(2)
-        
         sys.exit(run_qt())
     except Exception as e:
         print(f"Error occurred: {e}")
