@@ -15,17 +15,30 @@
 
   <h2>Структура репозитория</h2>
   <pre>
-├── app.py                # Основное Flask-приложение
-├── static/ 
-│   ├── css/ 
-│   │   ├── main.css      # Базовые стили Tailwind
-│   │   └── style.css     # Кастомные стили
-│   └── js/ 
-│       └── chat.js       # Функционал чата
-├── templates/ 
-│   ├── chat.html         # Интерфейс чата
-│   └── login.html        # Страница входа
-└── package.json          # Зависимости Node.js
+├── chat_history/               # История сообщений чата
+├── node_modules/               # Модули Node.js
+├── static/                     # Статические файлы
+│   ├── css/                    # Стили
+│   │   ├── dist/               # Скомпилированные CSS-файлы
+│   │   │   ├── output.css
+│   │   │   ├── input.css
+│   │   ├── main.css
+│   │   └── style.css
+│   ├── js/                     # Скрипты
+│   │   └── chat.js
+├── templates/                  # HTML-шаблоны
+│   ├── chat.html
+│   └── login.html
+├── app.py                      # Основное Flask-приложение
+├── voice_messages.py           # Поддержка голосовых сообщений
+├── ip_history.json             # История IP-адресов
+├── last_login.json             # Последний вход пользователя
+├── package-lock.json           # Лок-файл зависимостей Node.js
+├── package.json                # Зависимости Node.js
+├── postcss.config.js           # Конфигурация PostCSS
+├── tailwind.config.js          # Конфигурация Tailwind CSS
+├── requirements.txt            # Список зависимостей Python
+└── README.md                   # Описание проекта
   </pre>
 
   <div class="divider"></div>
