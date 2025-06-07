@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="utf-8"/>
     <title>Quick Chat - Login</title>
@@ -236,8 +236,8 @@
         </div>
         {% endif %}
         
-        <!-- Метод GET, чтобы перенаправить на /chat с параметрами -->
-        <form id="loginForm" onsubmit="return validateForm()" action="/chat" method="get">
+        <!-- Use POST method for security -->
+        <form id="loginForm" onsubmit="return validateForm()" action="/" method="post">
             <div>
                 <input type="text" 
                        name="username" 
@@ -273,17 +273,6 @@
             <button type="submit" class="bubble-button">Войти</button>
         </form>
     </div>
-    {% if last_login %}
-    <div class="quick-access">
-        <form action="/chat" method="get" id="quickLoginForm">
-            <input type="hidden" name="username" value="{{ last_login.username }}">
-            <input type="hidden" name="server_ip" value="{{ last_login.ip }}">
-            <button type="submit" class="quick-access-button">
-                Войти как {{ last_login.username }}
-            </button>
-        </form>
-    </div>
-    {% endif %}
     <script>
         const serverIpInput = document.getElementById('server_ip');
         const ipDropdown = document.getElementById('ipDropdown');
@@ -307,38 +296,13 @@
         });
 
         document.querySelector('.bubble-button').addEventListener('click', function(e) {
-            this.classList.add('clicked');
-            setTimeout(() => {
-                document.getElementById('loginForm').submit();
-            }, 500);
-            e.preventDefault();
-        });
-
-        document.querySelector('#loginForm').addEventListener('submit', function(e) {
-            const username = this.querySelector('[name="username"]').value;
-            const ip = this.querySelector('[name="server_ip"]').value;
-            
-            // Save last login
-            fetch('/save_last_login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    username: username,
-                    ip: ip
-                })
-            });
-        });
-
-        // Add animation for quick login button
-        document.querySelector('#quickLoginForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const button = this.querySelector('button');
-            button.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                this.submit();
-            }, 200);
+            e.preventDefault(); // Prevent immediate form submission
+            if (validateForm()) {
+                this.classList.add('clicked');
+                setTimeout(() => {
+                    document.getElementById('loginForm').submit();
+                }, 500);
+            }
         });
 
         function validateForm() {
@@ -377,22 +341,6 @@
 
             return isValid;
         }
-
-        // Save last login info when form is submitted successfully
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            if (!validateForm()) {
-                e.preventDefault();
-                return;
-            }
-
-            const username = document.getElementById('username').value;
-            const serverIp = document.getElementById('server_ip').value;
-
-            localStorage.setItem('lastLogin', JSON.stringify({
-                username: username,
-                ip: serverIp
-            }));
-        });
     </script>
 </body>
 </html>
